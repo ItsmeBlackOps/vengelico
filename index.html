@@ -26,9 +26,14 @@
       margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       background: radial-gradient(1200px 800px at 70% -10%, #122233 0%, var(--bg) 55%);
       color:#e5e7eb;
-      min-height:100vh; display:flex; justify-content: center; align-items:center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column; /* vertical layout */
+      align-items: center;    /* center items horizontally */
+      padding: 24px 16px;
+      gap: 18px;
     }
-    header{ width: min(1600px, 95vw); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    header{ width: 100%; display:flex; align-items:center; justify-content:centre;}
     .title{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px; }
     .pill{ background:#111827; border:1px solid #1f2937; padding:6px 10px; border-radius:999px; font-size:12px; color:#9ca3af; }
 
@@ -40,11 +45,11 @@
     button:hover{ transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,0,0,.35); border-color:#4b5563 }
 
     /* Board */
-    .wrap {
+    .wrap {  
       display: flex;
-      justify-content: center; 
-      align-items: center;
-      flex: 1;
+      justify-content: center; /* center board horizontally */
+      width: 100%;
+
     }
     #board{
       position:relative;
