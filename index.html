@@ -26,7 +26,7 @@
       margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       background: radial-gradient(1200px 800px at 70% -10%, #122233 0%, var(--bg) 55%);
       color:#e5e7eb;
-      min-height:100vh; display:flex; flex-direction:column; align-items:center; gap:18px; padding:24px 16px;
+      min-height:100vh; display:flex; justify-content: center; align-items:center;
     }
     header{ width: min(1600px, 95vw); display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .title{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px; }
@@ -40,7 +40,12 @@
     button:hover{ transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,0,0,.35); border-color:#4b5563 }
 
     /* Board */
-    .wrap{ width:min(1600px, 95vw); display:grid; grid-template-columns: 1fr; place-items:center; }
+    .wrap {
+      display: flex;
+      justify-content: center; 
+      align-items: center;
+      flex: 1;
+    }
     #board{
       position:relative;
       background: linear-gradient(180deg, #0f141b, #0b1016);
@@ -122,7 +127,7 @@
     <div class="card">
       <h2 id="ovl-title">How to Play</h2>
       <p>Board starts with a <b>random</b> layout of three symbols: <b>O</b>, <b>△</b>, <b>✕</b>.</p>
-      <p>Click (or tap) any connected group of <b>3+ identical</b> symbols to clear them.</p>
+      <p>Click (or tap) any connected group of <b>2+ identical</b> symbols to clear them.</p>
       <p>Blocks above fall down; empty columns slide left. Create chain reactions for speed.</p>
       <p><b>Goal:</b> clear the entire board in <b>20 seconds</b>. Every run is different.</p>
       <div class="row">
@@ -140,7 +145,7 @@
     // ===== Game Config =====
     const ROWS = 8, COLS = 11; // board size
     const TYPES = ['O','T','X'];
-    const MIN_GROUP = 3;
+    const MIN_GROUP = 2;
     const START_TIME = 20_000; // ms
 
     // ===== State =====
