@@ -1,79 +1,310 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Click‑Match Grid — 20s 8x11</title>
-<style>
-  :root{
-    --ink:#e6edf3; --bg:#070b10;
-    --tri:#00ff88; --cir:#ffd54a; --cro:#ff4a4a;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial;}
-  .stage{position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr;}
-  header{display:flex; gap:10px; align-items:center; padding:10px 12px; backdrop-filter: blur(6px); background:rgba(0,0,0,.5); border-bottom:1px solid rgba(255,255,255,.06);}
-  h1{margin:0;font-size:16px;font-weight:800;opacity:.85}
-  .hud{margin-left:auto;display:flex;gap:10px;align-items:center}
-  .pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07);padding:6px 10px;border-radius:999px;font-weight:700}
-  .btn{cursor:pointer;border:0;border-radius:10px;padding:8px 12px;background:#1b2330;color:var(--ink);font-weight:800;}
-  .board-wrap{position:relative; display:grid; place-items:center; padding:10px}
-  .board{--cols:8;--rows:11; display:grid; grid-template-columns:repeat(var(--cols),1fr); gap:6px; width:min(96vw,1000px); height:calc(100dvh - 78px);}
-  .tile{position:relative;border-radius:12px;aspect-ratio:1/1;display:grid;place-items:center;background:#0d1820;border:1px solid rgba(255,255,255,.08);cursor:pointer;overflow:hidden;transition:transform .12s ease,filter .12s ease}
-  .tile:hover{filter:brightness(1.08)}
-  .pop{animation:pop .14s ease} @keyframes pop{from{transform:scale(.9)}to{transform:scale(1)}}
-  .fadeout{animation:fade .18s ease forwards} @keyframes fade{to{transform:scale(.82) rotate(-3deg);opacity:0}}
-  svg{width:80%;height:80%}
-  .triangle svg{--col: var(--tri)}
-  .circle   svg{--col: var(--cir)}
-  .cross    svg{--col: var(--cro)}
-  .g{stroke:var(--col);stroke-width:10;fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--col))}
-  .overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,12,18,.76);backdrop-filter:blur(5px);border-radius:14px;opacity:0;pointer-events:none;transition:opacity .25s ease}
-  .overlay.show{opacity:1;pointer-events:auto}
-  .card{background:#0f131a;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:22px;text-align:center;width:min(480px,92vw);}
-  .title{font-size:22px;font-weight:800;margin:0 0 6px}.muted{opacity:.75;margin-bottom:14px}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>20-Second Match — O △ ✕</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --board:#0f141b;
+      --glass: #15202b;
+      --edge:#1f2937;
+      --o:#e6c14f;   /* circle */
+      --t:#34d3bd;   /* triangle */
+      --x:#f15b6c;   /* cross */
+      --cell:72px;   /* base size; scales on small screens */
+      --gap:6px;
+      --radius:10px;
+      --accent:#60a5fa;
+    }
+    @media (max-width: 900px){ :root{ --cell:56px; --gap:5px; } }
+    @media (max-width: 640px){ :root{ --cell:44px; --gap:4px; } }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 70% -10%, #122233 0%, var(--bg) 55%);
+      color:#e5e7eb;
+      min-height:100vh; display:flex; flex-direction:column; align-items:center; gap:18px; padding:24px 16px;
+    }
+    header{ width: min(1200px, 95vw); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .title{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px; }
+    .pill{ background:#111827; border:1px solid #1f2937; padding:6px 10px; border-radius:999px; font-size:12px; color:#9ca3af; }
+
+    .hud{ display:flex; gap:10px; align-items:center; }
+    .hud .box{ background:#0f172a; border:1px solid #1f2937; padding:10px 14px; border-radius:12px; box-shadow: inset 0 0 0 1px #0b1220; }
+    .hud .big{ font-size:22px; font-weight:800; letter-spacing:.5px; }
+    .hud .label{ font-size:11px; color:#9ca3af; margin-left:6px; letter-spacing:.2px; }
+    button{ background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:12px; padding:10px 14px; font-weight:700; cursor:pointer; transition: all .15s ease; }
+    button:hover{ transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,0,0,.35); border-color:#4b5563 }
+
+    /* Board */
+    .wrap{ width:min(1200px, 95vw); display:grid; grid-template-columns: 1fr; place-items:center; }
+    #board{
+      position:relative;
+      background: linear-gradient(180deg, #0f141b, #0b1016);
+      border:1px solid #1f2937; border-radius:18px; padding:16px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      display:grid; gap: var(--gap);
+      /* grid set via JS */
+      touch-action: manipulation;
+    }
+
+    .cell{ width:var(--cell); height:var(--cell); border-radius:12px; display:grid; place-items:center; font-weight:900; font-size:calc(var(--cell) * .48); user-select:none; cursor:pointer;
+      background: radial-gradient(120% 120% at 30% 15%, #1d2a36 0%, #121a23 55%);
+      border: 1px solid rgba(255,255,255,.06);
+      outline: 1px solid rgba(0,0,0,.5);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.05),
+        inset 0 -6px 20px rgba(0,0,0,.35),
+        0 2px 0 rgba(255,255,255,.04),
+        0 14px 28px rgba(0,0,0,.35);
+      transition: transform .08s ease, filter .12s ease, opacity .18s ease;
+      position:relative;
+      isolation:isolate;
+    }
+    .cell::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; mix-blend-mode:screen; opacity:.6; }
+    .cell.type-O{ color:var(--o); }
+    .cell.type-O::after{ box-shadow: inset 0 0 24px rgba(230,193,79,.35), 0 0 28px rgba(230,193,79,.18); }
+    .cell.type-T{ color:var(--t); }
+    .cell.type-T::after{ box-shadow: inset 0 0 24px rgba(52,211,189,.35), 0 0 28px rgba(52,211,189,.18); }
+    .cell.type-X{ color:var(--x); }
+    .cell.type-X::after{ box-shadow: inset 0 0 24px rgba(241,91,108,.35), 0 0 28px rgba(241,91,108,.18); }
+
+    .cell.dim{ filter: saturate(.3) brightness(.7); }
+    .cell.highlight{ transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 26px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06); }
+    .cell.pop{ animation: pop .22s ease; }
+    @keyframes pop{ from{ transform: scale(1); } 50%{ transform: scale(.88); } to{ transform: scale(1); } }
+
+    /* Overlay / Toast */
+    .overlay{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(3,6,10,.6); opacity:0; pointer-events:none; transition: opacity .2s ease; }
+    .overlay.show{ opacity:1; pointer-events:all; }
+    .card{ width:min(520px, 92vw); background:#0b1220; border:1px solid #1f2937; border-radius:16px; padding:22px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+    .card h2{ margin:0 0 10px; font-size:22px; }
+    .card p{ color:#9ca3af; margin:4px 0; }
+    .card .row{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+
+    footer{ color:#6b7280; font-size:12px; margin-top:8px; }
+  </style>
 </head>
 <body>
-<div class="stage">
   <header>
-    <h1>Click‑Match Grid — <span style="opacity:.7">20s</span></h1>
+    <div class="title">
+      <div class="pill">Arcade</div>
+      <div style="font-size:20px">20‑Second Match — <span title="Symbols">O △ ✕</span></div>
+    </div>
     <div class="hud">
-      <div class="pill">⏱️ <span id="time">20.0</span>s</div>
-      <div class="pill">Score: <span id="score">0</span></div>
-      <button class="btn" id="restart">Restart</button>
+      <div class="box"><span class="big" id="time">20.0</span><span class="label">sec</span></div>
+      <div class="box"><span class="big" id="score">0</span><span class="label">score</span></div>
+      <button id="restart">Restart</button>
     </div>
   </header>
-  <div class="board-wrap">
-    <div id="board" class="board"></div>
-    <div id="overlay" class="overlay">
-      <div class="card">
-        <p class="title" id="result-title">Ready?</p>
-        <p class="muted">Click groups of 2+ identical symbols to clear them. Gravity drops tiles and empty columns shift left. You have <b>20 seconds</b>.</p>
-        <button class="btn" id="play">Play</button>
+
+  <div class="wrap">
+    <div id="board" aria-label="Game board" role="grid"></div>
+  </div>
+
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovl-title">
+    <div class="card">
+      <h2 id="ovl-title">How to Play</h2>
+      <p>Board starts with a <b>random</b> layout of three symbols: <b>O</b>, <b>△</b>, <b>✕</b>.</p>
+      <p>Click (or tap) any connected group of <b>3+ identical</b> symbols to clear them.</p>
+      <p>Blocks above fall down; empty columns slide left. Create chain reactions for speed.</p>
+      <p><b>Goal:</b> clear the entire board in <b>20 seconds</b>. Every run is different.</p>
+      <div class="row">
+        <button id="play">Play</button>
       </div>
     </div>
   </div>
-</div>
-<script>
-(function(){
-  const COLS=11, ROWS=8, TYPES=["circle","triangle","cross"];
-  let grid=[], score=0, playing=false, timerId=null, remaining=20.0;
-  const boardEl=document.getElementById('board'), overlayEl=document.getElementById('overlay'), scoreEl=document.getElementById('score'), timeEl=document.getElementById('time');
-  const randType=()=>TYPES[Math.floor(Math.random()*TYPES.length)];
-  const svgFor=t=>t==='triangle'?`<svg viewBox="0 0 100 100"><polygon class="g" points="50 14, 88 86, 12 86"/></svg>`:t==='circle'?`<svg viewBox="0 0 100 100"><circle class="g" cx="50" cy="50" r="32"/></svg>`:`<svg viewBox="0 0 100 100"><path class="g" d="M25 25 L75 75 M75 25 L25 75"/></svg>`;
-  function newGrid(){ grid=Array.from({length:COLS},()=>Array.from({length:ROWS},()=>({type:randType()}))); }
-  function render(){ boardEl.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const cell=grid[c][r]; const tile=document.createElement('button'); tile.className=`tile ${cell?.type??''}`; tile.dataset.c=c; tile.dataset.r=r; tile.disabled=!playing||!cell; tile.innerHTML=cell?svgFor(cell.type):''; tile.onclick=onTileClick; boardEl.appendChild(tile); } } }
-  function neighbors(c,r){return [[c-1,r],[c+1,r],[c,r-1],[c,r+1]].filter(([x,y])=>x>=0&&x<COLS&&y>=0&&y<ROWS);}
-  function flood(c,r,type,seen){const k=`${c},${r}`; if(seen.has(k))return; if(!grid[c][r]||grid[c][r].type!==type)return; seen.add(k); neighbors(c,r).forEach(([nc,nr])=>flood(nc,nr,type,seen));}
-  function onTileClick(e){ if(!playing) return; const c=+e.currentTarget.dataset.c, r=+e.currentTarget.dataset.r; const cell=grid[c][r]; if(!cell)return; const group=new Set(); flood(c,r,cell.type,group); if(group.size<2)return; group.forEach(k=>{const[gc,gr]=k.split(',').map(Number); grid[gc][gr]=null;}); score+=group.size*group.size; scoreEl.textContent=score; applyGravity(); render(); }
-  function applyGravity(){ for(let c=0;c<COLS;c++){ const items=grid[c].filter(Boolean); const miss=ROWS-items.length; grid[c]=Array.from({length:miss},()=>null).concat(items);} const nonEmpty=grid.filter(col=>col.some(Boolean)); grid=nonEmpty.concat(Array.from({length:COLS-nonEmpty.length},()=>Array.from({length:ROWS},()=>null))); }
-  function runTimer(){ clearInterval(timerId); timerId=setInterval(()=>{ remaining=Math.max(0,remaining-0.1); timeEl.textContent=remaining.toFixed(1); if(remaining<=0) endGame(); },100); }
-  function startGame(){ score=0; remaining=20.0; playing=true; scoreEl.textContent='0'; timeEl.textContent=remaining.toFixed(1); newGrid(); render(); overlayEl.classList.remove('show'); runTimer(); }
-  function endGame(){ playing=false; clearInterval(timerId); overlayEl.classList.add('show'); document.getElementById('result-title').textContent=`Time! Final score: ${score}`; }
-  document.getElementById('restart').onclick=startGame; document.getElementById('play').onclick=startGame;
-  newGrid(); render(); overlayEl.classList.add('show');
-})();
-</script>
+
+  <footer>
+    Built with plain HTML/CSS/JS. Keyboard: hover with mouse; on touch, tap to select/clear groups.
+  </footer>
+
+  <script>
+  (function(){
+    // ===== Game Config =====
+    const ROWS = 10, COLS = 12; // board size
+    const TYPES = ['O','T','X'];
+    const MIN_GROUP = 3;
+    const START_TIME = 20_000; // ms
+
+    // ===== State =====
+    let grid = [];         // 2D array of symbols or null
+    let timeLeft = START_TIME; // ms
+    let lastTick = 0;
+    let running = false;
+    let rafId = null;
+    let score = 0;
+    let inputLocked = false; // during animations
+
+    // ===== DOM =====
+    const board = document.getElementById('board');
+    const timeEl = document.getElementById('time');
+    const scoreEl = document.getElementById('score');
+    const restartBtn = document.getElementById('restart');
+    const overlay = document.getElementById('overlay');
+    const playBtn = document.getElementById('play');
+
+    // Grid template
+    board.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
+
+    // ===== Helpers =====
+    const rng = (n)=> Math.floor(Math.random()*n);
+    const inBounds = (r,c)=> r>=0 && c>=0 && r<ROWS && c<COLS;
+
+    function newGrid(){
+      grid = Array.from({length: ROWS}, ()=> Array.from({length: COLS}, ()=> TYPES[rng(TYPES.length)]));
+    }
+
+    function cellId(r,c){ return `r${r}c${c}`; }
+
+    function render(){
+      // Create/patch DOM to match grid
+      board.innerHTML = '';
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const sym = grid[r][c];
+          const d = document.createElement('div');
+          d.className = `cell ${sym?`type-${sym}`:''}`;
+          d.id = cellId(r,c);
+          d.setAttribute('role','gridcell');
+          d.dataset.r=r; d.dataset.c=c;
+          d.textContent = toGlyph(sym);
+          board.appendChild(d);
+        }
+      }
+    }
+
+    function toGlyph(sym){
+      if(sym==='O') return 'O';
+      if(sym==='T') return '△';
+      if(sym==='X') return '✕';
+      return '';
+    }
+
+    // Flood fill to get connected group of same symbol
+    function getGroup(r,c){
+      const target = grid[r][c];
+      if(!target) return [];
+      const q = [[r,c]]; const seen = new Set([r+','+c]);
+      const group = [];
+      while(q.length){
+        const [cr,cc] = q.shift();
+        group.push([cr,cc]);
+        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+        for(const [dr,dc] of dirs){
+          const nr=cr+dr, nc=cc+dc;
+          if(!inBounds(nr,nc)) continue;
+          const k = nr+','+nc;
+          if(seen.has(k)) continue;
+          if(grid[nr][nc] === target){ seen.add(k); q.push([nr,nc]); }
+        }
+      }
+      return group;
+    }
+
+    // Apply gravity (down) and then shift empty columns left
+    function settle(){
+      // Gravity per column
+      for(let c=0;c<COLS;c++){
+        let write = ROWS-1;
+        for(let r=ROWS-1;r>=0;r--){
+          if(grid[r][c]){ grid[write][c] = grid[r][c]; if(write!==r) grid[r][c]=null; write--; }
+        }
+        for(let r=write;r>=0;r--) grid[r][c]=null;
+      }
+      // Collapse empty columns to the left
+      let writeC = 0;
+      for(let c=0;c<COLS;c++){
+        let has = false; for(let r=0;r<ROWS;r++){ if(grid[r][c]){ has=true; break; } }
+        if(has){
+          if(writeC!==c){ for(let r=0;r<ROWS;r++){ grid[r][writeC]=grid[r][c]; grid[r][c]=null; } }
+          writeC++;
+        }
+      }
+    }
+
+    function anyCells(){
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(grid[r][c]) return true; return false;
+    }
+
+    function clearGroup(cells){
+      // animation: pop + fade
+      inputLocked = true;
+      cells.forEach(([r,c])=>{
+        const el = document.getElementById(cellId(r,c));
+        el.classList.add('highlight','pop');
+      });
+      setTimeout(()=>{
+        cells.forEach(([r,c])=> grid[r][c]=null);
+        score += cells.length;
+        scoreEl.textContent = score;
+        settle();
+        render();
+        inputLocked = false;
+      }, 160);
+    }
+
+
+    // Click to clear
+    board.addEventListener('click', (e)=>{
+      if(inputLocked || !running) return;
+      const t = e.target;
+      if(!(t && t.classList.contains('cell'))) return;
+      const r = +t.dataset.r, c = +t.dataset.c;
+      const group = getGroup(r,c);
+      if(group.length >= MIN_GROUP){ clearGroup(group); }
+    });
+
+    // Timer loop
+    function loop(ts){
+      if(!running){ lastTick = ts; return; }
+      const dt = ts - lastTick; lastTick = ts;
+      timeLeft -= dt;
+      timeEl.textContent = (Math.max(timeLeft,0)/1000).toFixed(1);
+
+      if(!anyCells()) return end(true);
+      if(timeLeft <= 0) return end(false);
+
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function start(){
+      score = 0; scoreEl.textContent = score;
+      timeLeft = START_TIME; timeEl.textContent = (timeLeft/1000).toFixed(1);
+      newGrid(); render(); dimNone();
+      running = true; overlay.classList.remove('show');
+      cancelAnimationFrame(rafId); lastTick = performance.now();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function end(win){
+      running = false; cancelAnimationFrame(rafId);
+      overlay.classList.add('show');
+      const h2 = overlay.querySelector('h2');
+      const pList = overlay.querySelectorAll('p');
+      if(win){
+        h2.textContent = 'You cleared it!';
+        pList[0].innerHTML = `Time left: <b>${(Math.max(timeLeft,0)/1000).toFixed(1)}s</b> — Score <b>${score}</b>`;
+        pList[1].textContent = 'Great chaining! Try again for a faster time.';
+        pList[2].textContent = 'Tip: target the largest clusters first to open space.';
+        pList[3].textContent = 'Press Play to start another random layout.';
+      }else{
+        h2.textContent = "Time's up!";
+        pList[0].textContent = 'You have 20 seconds to clear the entire board.';
+        pList[1].textContent = 'Find and blast groups of 3+ matching symbols.';
+        pList[2].textContent = 'Chain reactions save precious seconds.';
+        pList[3].textContent = 'Press Play to try a new random layout.';
+      }
+    }
+
+    restartBtn.addEventListener('click', start);
+    playBtn.addEventListener('click', start);
+
+    // Show help on load
+    overlay.classList.add('show');
+  })();
+  </script>
 </body>
 </html>
