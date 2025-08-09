@@ -246,6 +246,28 @@
       }, 160);
     }
 
+    // Hover highlight (desktop)
+    board.addEventListener('pointermove', (e)=>{
+      if(inputLocked || !running) return;
+      if(!(e.target && e.target.classList.contains('cell'))) return dimNone();
+      const r = +e.target.dataset.r, c = +e.target.dataset.c;
+      const group = getGroup(r,c);
+      const big = group.length >= MIN_GROUP;
+      dimAll();
+      for(const [gr,gc] of group){
+        const el = document.getElementById(cellId(gr,gc));
+        el.classList.remove('dim');
+        if(big) el.classList.add('highlight');
+      }
+    });
+    board.addEventListener('pointerleave', ()=> dimNone());
+
+    function dimAll(){
+      [...board.children].forEach(n=>{ n.classList.add('dim'); n.classList.remove('highlight'); });
+    }
+    function dimNone(){
+      [...board.children].forEach(n=>{ n.classList.remove('dim','highlight'); });
+    }
 
     // Click to clear
     board.addEventListener('click', (e)=>{
