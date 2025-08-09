@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Click‑Match Grid — 20s 8x11</title>
+<style>
+  :root{
+    --ink:#e6edf3; --bg:#070b10;
+    --tri:#00ff88; --cir:#ffd54a; --cro:#ff4a4a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial;}
+  .stage{position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr;}
+  header{display:flex; gap:10px; align-items:center; padding:10px 12px; backdrop-filter: blur(6px); background:rgba(0,0,0,.5); border-bottom:1px solid rgba(255,255,255,.06);}
+  h1{margin:0;font-size:16px;font-weight:800;opacity:.85}
+  .hud{margin-left:auto;display:flex;gap:10px;align-items:center}
+  .pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07);padding:6px 10px;border-radius:999px;font-weight:700}
+  .btn{cursor:pointer;border:0;border-radius:10px;padding:8px 12px;background:#1b2330;color:var(--ink);font-weight:800;}
+  .board-wrap{position:relative; display:grid; place-items:center; padding:10px}
+  .board{--cols:8;--rows:11; display:grid; grid-template-columns:repeat(var(--cols),1fr); gap:6px; width:min(96vw,1000px); height:calc(100dvh - 78px);}
+  .tile{position:relative;border-radius:12px;aspect-ratio:1/1;display:grid;place-items:center;background:#0d1820;border:1px solid rgba(255,255,255,.08);cursor:pointer;overflow:hidden;transition:transform .12s ease,filter .12s ease}
+  .tile:hover{filter:brightness(1.08)}
+  .pop{animation:pop .14s ease} @keyframes pop{from{transform:scale(.9)}to{transform:scale(1)}}
+  .fadeout{animation:fade .18s ease forwards} @keyframes fade{to{transform:scale(.82) rotate(-3deg);opacity:0}}
+  svg{width:80%;height:80%}
+  .triangle svg{--col: var(--tri)}
+  .circle   svg{--col: var(--cir)}
+  .cross    svg{--col: var(--cro)}
+  .g{stroke:var(--col);stroke-width:10;fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--col))}
+  .overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,12,18,.76);backdrop-filter:blur(5px);border-radius:14px;opacity:0;pointer-events:none;transition:opacity .25s ease}
+  .overlay.show{opacity:1;pointer-events:auto}
+  .card{background:#0f131a;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:22px;text-align:center;width:min(480px,92vw);}
+  .title{font-size:22px;font-weight:800;margin:0 0 6px}.muted{opacity:.75;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <header>
+    <h1>Click‑Match Grid — <span style="opacity:.7">20s</span></h1>
+    <div class="hud">
+      <div class="pill">⏱️ <span id="time">20.0</span>s</div>
+      <div class="pill">Score: <span id="score">0</span></div>
+      <button class="btn" id="restart">Restart</button>
+    </div>
+  </header>
+  <div class="board-wrap">
+    <div id="board" class="board"></div>
+    <div id="overlay" class="overlay">
+      <div class="card">
+        <p class="title" id="result-title">Ready?</p>
+        <p class="muted">Click groups of 2+ identical symbols to clear them. Gravity drops tiles and empty columns shift left. You have <b>20 seconds</b>.</p>
+        <button class="btn" id="play">Play</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const COLS=11, ROWS=8, TYPES=["circle","triangle","cross"];
+  let grid=[], score=0, playing=false, timerId=null, remaining=20.0;
+  const boardEl=document.getElementById('board'), overlayEl=document.getElementById('overlay'), scoreEl=document.getElementById('score'), timeEl=document.getElementById('time');
+  const randType=()=>TYPES[Math.floor(Math.random()*TYPES.length)];
+  const svgFor=t=>t==='triangle'?`<svg viewBox="0 0 100 100"><polygon class="g" points="50 14, 88 86, 12 86"/></svg>`:t==='circle'?`<svg viewBox="0 0 100 100"><circle class="g" cx="50" cy="50" r="32"/></svg>`:`<svg viewBox="0 0 100 100"><path class="g" d="M25 25 L75 75 M75 25 L25 75"/></svg>`;
+  function newGrid(){ grid=Array.from({length:COLS},()=>Array.from({length:ROWS},()=>({type:randType()}))); }
+  function render(){ boardEl.innerHTML=''; for(let r=0;r<ROWS;r++){ for(let c=0;c<COLS;c++){ const cell=grid[c][r]; const tile=document.createElement('button'); tile.className=`tile ${cell?.type??''}`; tile.dataset.c=c; tile.dataset.r=r; tile.disabled=!playing||!cell; tile.innerHTML=cell?svgFor(cell.type):''; tile.onclick=onTileClick; boardEl.appendChild(tile); } } }
+  function neighbors(c,r){return [[c-1,r],[c+1,r],[c,r-1],[c,r+1]].filter(([x,y])=>x>=0&&x<COLS&&y>=0&&y<ROWS);}
+  function flood(c,r,type,seen){const k=`${c},${r}`; if(seen.has(k))return; if(!grid[c][r]||grid[c][r].type!==type)return; seen.add(k); neighbors(c,r).forEach(([nc,nr])=>flood(nc,nr,type,seen));}
+  function onTileClick(e){ if(!playing) return; const c=+e.currentTarget.dataset.c, r=+e.currentTarget.dataset.r; const cell=grid[c][r]; if(!cell)return; const group=new Set(); flood(c,r,cell.type,group); if(group.size<2)return; group.forEach(k=>{const[gc,gr]=k.split(',').map(Number); grid[gc][gr]=null;}); score+=group.size*group.size; scoreEl.textContent=score; applyGravity(); render(); }
+  function applyGravity(){ for(let c=0;c<COLS;c++){ const items=grid[c].filter(Boolean); const miss=ROWS-items.length; grid[c]=Array.from({length:miss},()=>null).concat(items);} const nonEmpty=grid.filter(col=>col.some(Boolean)); grid=nonEmpty.concat(Array.from({length:COLS-nonEmpty.length},()=>Array.from({length:ROWS},()=>null))); }
+  function runTimer(){ clearInterval(timerId); timerId=setInterval(()=>{ remaining=Math.max(0,remaining-0.1); timeEl.textContent=remaining.toFixed(1); if(remaining<=0) endGame(); },100); }
+  function startGame(){ score=0; remaining=20.0; playing=true; scoreEl.textContent='0'; timeEl.textContent=remaining.toFixed(1); newGrid(); render(); overlayEl.classList.remove('show'); runTimer(); }
+  function endGame(){ playing=false; clearInterval(timerId); overlayEl.classList.add('show'); document.getElementById('result-title').textContent=`Time! Final score: ${score}`; }
+  document.getElementById('restart').onclick=startGame; document.getElementById('play').onclick=startGame;
+  newGrid(); render(); overlayEl.classList.add('show');
+})();
+</script>
+</body>
+</html>
